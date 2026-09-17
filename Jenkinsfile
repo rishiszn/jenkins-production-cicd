@@ -6,7 +6,7 @@ pipeline {
     IMAGE_NAME = "jenkins-production-cicd"
     IMAGE_TAG = "${BUILD_NUMBER}"
     GHCR_USERNAME = credentials('ghcr-credentials')
-    
+
 }
 
     stages {
@@ -85,9 +85,9 @@ pipeline {
         sh '''
             echo "Logging in to GitHub Container Registry..."
 
-            echo "$GHCR_TOKEN" | docker login ghcr.io \
-              -u "$GHCR_USERNAME" \
-              --password-stdin
+            echo "$GHCR_USERNAME_PSW" | docker login ghcr.io \
+  -u "$GHCR_USERNAME_USR" \
+  --password-stdin
 
             docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
               ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
