@@ -2,10 +2,10 @@ pipeline {
     agent any
 
     environment {
-        PATH = "/usr/local/bin:${env.PATH}"
-        IMAGE_NAME = "jenkins-production-cicd"
-        IMAGE_TAG = "${BUILD_NUMBER}"
-    }
+    PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
+    IMAGE_NAME = "jenkins-production-cicd"
+    IMAGE_TAG = "${BUILD_NUMBER}"
+}
 
     stages {
         stage('Test') {
@@ -25,6 +25,10 @@ pipeline {
                     whoami
                     which docker
                     docker --version
+                    which syft
+                    syft version
+                    which trivy
+                    trivy --version
                 '''
             }
         }
@@ -63,5 +67,21 @@ pipeline {
                 '''
             }
         }
+        stage('Generate SBOM') {
+            steps {
+                sh '''
+                    echo "Generating Software Bill of Materials..."
+
+                    syft ${IMAGE_NAME}:${IMAGE_TAG} \
+                    -o spdx-json \
+                    > sbom.json
+                '''
+            }
+        }
     }
+    post {
+    always {
+        archiveArtifacts artifacts: 'sbom.json', fingerprint: true
+    }
+}
 }
