@@ -5,6 +5,8 @@ pipeline {
     PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     IMAGE_NAME = "jenkins-production-cicd"
     IMAGE_TAG = "${BUILD_NUMBER}"
+    GHCR_USERNAME = credentials('ghcr-credentials')
+    
 }
 
     stages {
@@ -78,6 +80,25 @@ pipeline {
                 '''
             }
         }
+        stage('Push to GHCR') {
+    steps {
+        sh '''
+            echo "Logging in to GitHub Container Registry..."
+
+            echo "$GHCR_TOKEN" | docker login ghcr.io \
+              -u "$GHCR_USERNAME" \
+              --password-stdin
+
+            docker tag ${IMAGE_NAME}:${IMAGE_TAG} \
+              ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
+
+            docker push \
+              ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
+
+            docker logout ghcr.io
+        '''
+    }
+}
     }
     post {
     always {
