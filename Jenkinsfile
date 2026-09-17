@@ -1,6 +1,11 @@
 pipeline {
     agent any
 
+environment {
+PATH = "/usr/local/bin:${env.PATH}"
+}
+
+
     stages {
         stage('Test') {
             steps {
@@ -12,10 +17,19 @@ pipeline {
                 '''
             }
         }
-	stage('Docker Build') {
-		steps{
-			sh 'docker build -t jenkins-production-cicd:v1 .'
-}
-}
+	    stage('Docker Environment Check'){
+		    steps{
+                sh ''' 
+                    whoami
+                    which docker
+                    docker --version
+                '''
+            }
+        }
+	    stage('Docker Build') {
+		    steps{
+			    sh 'docker build -t jenkins-production-cicd:v1 .'
+            }
+        }
     }
 }
