@@ -1,10 +1,11 @@
 pipeline {
     agent any
 
-environment {
-PATH = "/usr/local/bin:${env.PATH}"
-}
-
+    environment {
+        PATH = "/usr/local/bin:${env.PATH}"
+        IMAGE_NAME = "jenkins-production-cicd"
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
 
     stages {
         stage('Test') {
@@ -17,18 +18,49 @@ PATH = "/usr/local/bin:${env.PATH}"
                 '''
             }
         }
-	    stage('Docker Environment Check'){
-		    steps{
-                sh ''' 
+
+        stage('Docker Environment Check') {
+            steps {
+                sh '''
                     whoami
                     which docker
                     docker --version
                 '''
             }
         }
-	    stage('Docker Build') {
-		    steps{
-			    sh 'docker build -t jenkins-production-cicd:v1 .'
+
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    docker build \
+                      -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                '''
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh '''
+                    echo "Running Trivy vulnerability scan..."
+
+                    trivy image \
+                      --severity HIGH,CRITICAL \
+                      --exit-code 0 \
+                      ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
+            }
+        }
+
+        stage('Critical Security Gate') {
+            steps {
+                sh '''
+                    echo "Checking for CRITICAL vulnerabilities..."
+
+                    trivy image \
+                      --severity CRITICAL \
+                      --exit-code 1 \
+                      ${IMAGE_NAME}:${IMAGE_TAG}
+                '''
             }
         }
     }
