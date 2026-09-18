@@ -120,7 +120,7 @@ stage('Deploy') {
 
                 docker run -d \
                     --name jenkins-cicd-app \
-                    -p 5000:5000 \
+                    -p 5001:5000 \
                     ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
 
                 docker logout ghcr.io
