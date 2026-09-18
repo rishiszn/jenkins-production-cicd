@@ -13,8 +13,9 @@ def test_home():
     assert response.status_code == 200
     assert response.json["status"] == "running"
 
+def test_health(monkeypatch):
+    monkeypatch.delenv("FORCE_HEALTH_FAILURE", raising=False)
 
-def test_health():
     client = app.test_client()
 
     response = client.get("/health")
