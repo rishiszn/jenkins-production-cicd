@@ -23,6 +23,11 @@ parameters {
 }
 
     stages {
+        stage('Initialize') {
+    steps {
+        sh 'rm -f previous_image.txt'
+    }
+}
         stage('Test') {
             steps {
                 sh '''
@@ -145,8 +150,7 @@ stage('Deploy') {
                 docker run -d \
                 --name jenkins-cicd-app \
                 -p 5001:5000 \
-                -e FORCE_HEALTH_FAILURE=${FORCE_HEALTH_FAILURE} \
-                ${DEPLOYED_IMAGE}
+                -e FORCE_HEALTH_FAILURE="${FORCE_HEALTH_FAILURE:-false}" \
 
                 docker logout ghcr.io
 
@@ -183,39 +187,41 @@ stage('Health Check') {
                     echo "Rolling back to: ${previousImage}"
 
                     withCredentials([usernamePassword(
-                        credentialsId: 'ghcr-credentials',
-                        usernameVariable: 'GHCR_USERNAME',
-                        passwordVariable: 'GHCR_PASSWORD'
-                    )]) {
-                        sh """
-                            echo "\$GHCR_PASSWORD" | docker login ghcr.io \
-                                -u "\$GHCR_USERNAME" \
-                                --password-stdin
+                    credentialsId: 'ghcr-credentials',
+                    usernameVariable: 'GHCR_USERNAME',
+                    passwordVariable: 'GHCR_PASSWORD')])         
+            {
+                withEnv(["ROLLBACK_IMAGE=${previousImage}"]) {
+                sh '''
+                echo "$GHCR_PASSWORD" | docker login ghcr.io \
+                -u "$GHCR_USERNAME" \
+                --password-stdin
 
-                            docker pull ${previousImage}
+            docker pull "$ROLLBACK_IMAGE"
 
-                            docker stop jenkins-cicd-app || true
-                            docker rm jenkins-cicd-app || true
+            docker stop jenkins-cicd-app || true
+            docker rm jenkins-cicd-app || true
 
-                            docker run -d \
-                             --name jenkins-cicd-app \
-                            -p 5001:5000 \
-                            -e FORCE_HEALTH_FAILURE=false \
-                            ${previousImage}
+            docker run -d \
+                --name jenkins-cicd-app \
+                -p 5001:5000 \
+                -e FORCE_HEALTH_FAILURE=false \
+                "$ROLLBACK_IMAGE"
 
-                            docker logout ghcr.io
+            docker logout ghcr.io
 
-                            echo "Rollback container started."
+            echo "Rollback container started."
 
-                            sleep 3
+            sleep 3
 
-                            curl --fail --silent --show-error \
-                                http://localhost:5001/health
+            curl --fail --silent --show-error \
+                http://localhost:5001/health
 
-                            echo ""
-                            echo "Rollback health check passed."
-                        """
-                    }
+            echo ""
+            echo "Rollback health check passed."
+        '''
+    }
+}
                 } else {
                     echo "No previous deployment available for rollback."
                 }
