@@ -6,6 +6,7 @@ pipeline {
     IMAGE_NAME = "jenkins-production-cicd"
     IMAGE_TAG = "${BUILD_NUMBER}"
     GHCR_USERNAME = credentials('ghcr-credentials')
+    DEPLOYED_IMAGE = "ghcr.io/rishiszn/jenkins-production-cicd:${BUILD_NUMBER}"
 
 }
 
@@ -107,13 +108,24 @@ stage('Deploy') {
             passwordVariable: 'GHCR_PASSWORD'
         )]) {
             sh '''
-                echo "Deploying application..."
+                echo "Preparing deployment..."
+
+                if docker inspect jenkins-cicd-app >/dev/null 2>&1; then
+                    docker inspect jenkins-cicd-app \
+                        --format '{{.Config.Image}}' > previous_image.txt
+
+                    echo "Previous image:"
+                    cat previous_image.txt
+                else
+                    echo "No previous deployment found."
+                    echo "NONE" > previous_image.txt
+                fi
 
                 echo "$GHCR_PASSWORD" | docker login ghcr.io \
                     -u "$GHCR_USERNAME" \
                     --password-stdin
 
-                docker pull ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
+                docker pull ${DEPLOYED_IMAGE}
 
                 docker stop jenkins-cicd-app || true
                 docker rm jenkins-cicd-app || true
@@ -121,7 +133,7 @@ stage('Deploy') {
                 docker run -d \
                     --name jenkins-cicd-app \
                     -p 5001:5000 \
-                    ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
+                    ${DEPLOYED_IMAGE}
 
                 docker logout ghcr.io
 
@@ -147,9 +159,62 @@ stage('Health Check') {
     }
 }
     }
-    post {
+   post {
+    failure {
+        script {
+            if (fileExists('previous_image.txt')) {
+                def previousImage = readFile('previous_image.txt').trim()
+
+                if (previousImage != "NONE") {
+                    echo "Deployment failed. Starting rollback..."
+                    echo "Rolling back to: ${previousImage}"
+
+                    withCredentials([usernamePassword(
+                        credentialsId: 'ghcr-credentials',
+                        usernameVariable: 'GHCR_USERNAME',
+                        passwordVariable: 'GHCR_PASSWORD'
+                    )]) {
+                        sh """
+                            echo "\$GHCR_PASSWORD" | docker login ghcr.io \
+                                -u "\$GHCR_USERNAME" \
+                                --password-stdin
+
+                            docker pull ${previousImage}
+
+                            docker stop jenkins-cicd-app || true
+                            docker rm jenkins-cicd-app || true
+
+                            docker run -d \
+                                --name jenkins-cicd-app \
+                                -p 5001:5000 \
+                                ${previousImage}
+
+                            docker logout ghcr.io
+
+                            echo "Rollback container started."
+
+                            sleep 3
+
+                            curl --fail --silent --show-error \
+                                http://localhost:5001/health
+
+                            echo ""
+                            echo "Rollback health check passed."
+                        """
+                    }
+                } else {
+                    echo "No previous deployment available for rollback."
+                }
+            } else {
+                echo "No previous_image.txt found. Rollback unavailable."
+            }
+        }
+    }
+
     always {
-        archiveArtifacts artifacts: 'sbom.json', fingerprint: true
+        archiveArtifacts artifacts: 'sbom.json,previous_image.txt',
+            fingerprint: true,
+            allowEmptyArchive: true
     }
 }
 }
