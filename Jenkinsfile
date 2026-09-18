@@ -131,6 +131,21 @@ stage('Deploy') {
         }
     }
 }
+stage('Health Check') {
+    steps {
+        sh '''
+            echo "Running application health check..."
+
+            sleep 3
+
+            curl --fail --silent --show-error \
+                http://localhost:5001/health
+
+            echo ""
+            echo "Health check passed."
+        '''
+    }
+}
     }
     post {
     always {
