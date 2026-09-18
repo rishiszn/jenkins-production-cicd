@@ -1,3 +1,4 @@
+import os
 from flask import Flask, jsonify
 
 app = Flask(__name__)
@@ -16,6 +17,9 @@ def home():
 
 @app.route("/health")
 def health():
+    if os.getenv("FORCE_HEALTH_FAILURE", "").lower() == "true":
+        return jsonify({"status": "unhealthy"}), 500
+
     return jsonify({"status": "healthy"})
 
 

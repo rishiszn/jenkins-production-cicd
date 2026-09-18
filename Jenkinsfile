@@ -1,6 +1,18 @@
 pipeline {
     agent any
 
+    options {
+    disableConcurrentBuilds()
+}
+
+parameters {
+    booleanParam(
+        name: 'FORCE_HEALTH_FAILURE',
+        defaultValue: false,
+        description: 'Demo only: force /health to fail and validate automatic rollback.'
+    )
+}
+
     environment {
     PATH = "/opt/homebrew/bin:/usr/local/bin:${env.PATH}"
     IMAGE_NAME = "jenkins-production-cicd"
@@ -131,9 +143,10 @@ stage('Deploy') {
                 docker rm jenkins-cicd-app || true
 
                 docker run -d \
-                    --name jenkins-cicd-app \
-                    -p 5001:5000 \
-                    ${DEPLOYED_IMAGE}
+                --name jenkins-cicd-app \
+                -p 5001:5000 \
+                -e FORCE_HEALTH_FAILURE=${FORCE_HEALTH_FAILURE} \
+                ${DEPLOYED_IMAGE}
 
                 docker logout ghcr.io
 
@@ -185,9 +198,10 @@ stage('Health Check') {
                             docker rm jenkins-cicd-app || true
 
                             docker run -d \
-                                --name jenkins-cicd-app \
-                                -p 5001:5000 \
-                                ${previousImage}
+                             --name jenkins-cicd-app \
+                            -p 5001:5000 \
+                            -e FORCE_HEALTH_FAILURE=false \
+                            ${previousImage}
 
                             docker logout ghcr.io
 
