@@ -148,9 +148,6 @@ stage('Deploy') {
                 docker rm jenkins-cicd-app || true
 
                 docker run -d \
-                --name jenkins-cicd-app \
-                -p 5001:5000 \
-                docker run -d \
     --name jenkins-cicd-app \
     -p 5001:5000 \
     -e FORCE_HEALTH_FAILURE="${FORCE_HEALTH_FAILURE:-false}" \
