@@ -99,6 +99,38 @@ pipeline {
         '''
     }
 }
+stage('Deploy') {
+    steps {
+        withCredentials([usernamePassword(
+            credentialsId: 'ghcr-credentials',
+            usernameVariable: 'GHCR_USERNAME',
+            passwordVariable: 'GHCR_PASSWORD'
+        )]) {
+            sh '''
+                echo "Deploying application..."
+
+                echo "$GHCR_PASSWORD" | docker login ghcr.io \
+                    -u "$GHCR_USERNAME" \
+                    --password-stdin
+
+                docker pull ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
+
+                docker stop jenkins-cicd-app || true
+                docker rm jenkins-cicd-app || true
+
+                docker run -d \
+                    --name jenkins-cicd-app \
+                    -p 5000:5000 \
+                    ghcr.io/rishiszn/${IMAGE_NAME}:${IMAGE_TAG}
+
+                docker logout ghcr.io
+
+                echo "Application deployed successfully."
+                docker ps --filter "name=jenkins-cicd-app"
+            '''
+        }
+    }
+}
     }
     post {
     always {
