@@ -150,7 +150,13 @@ stage('Deploy') {
                 docker run -d \
                 --name jenkins-cicd-app \
                 -p 5001:5000 \
-                -e FORCE_HEALTH_FAILURE="${FORCE_HEALTH_FAILURE:-false}" \
+                docker run -d \
+    --name jenkins-cicd-app \
+    -p 5001:5000 \
+    -e FORCE_HEALTH_FAILURE="${FORCE_HEALTH_FAILURE:-false}" \
+    ${DEPLOYED_IMAGE}
+
+docker logout ghcr.io
 
                 docker logout ghcr.io
 
